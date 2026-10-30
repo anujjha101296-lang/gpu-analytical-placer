@@ -35,3 +35,42 @@ jobs:
               assert np.isfinite(hpwl(legal, nl)), name
               print(name, "PASS", "legal_hpwl=", round(hpwl(legal, nl), 3))
           PY
+
+  torch-cpu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies including CPU PyTorch
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Validate PyTorch CPU port against NumPy reference
+        run: |
+          python - <<'PY'
+          import numpy as np
+          import torch
+          from placer import gen_netlist, legalize, overlap_count, hpwl, place_fd_grid, place_fd_allpairs
+          from placer_torch import fd_grid_t, fd_allpairs_t
+          assert not torch.cuda.is_available(), "This job is intended to exercise the CPU fallback"
+          for n in (32, 64):
+              for seed in (0, 1):
+                  nl = gen_netlist(n, 100 + seed)
+                  for label, ref, port in (
+                      ("grid", place_fd_grid, fd_grid_t),
+                      ("allpairs", place_fd_allpairs, fd_allpairs_t),
+                  ):
+                      a = ref(nl, iters=30, seed=seed)
+                      b = port(nl, iters=30, seed=seed, d=torch.device("cpu"))
+                      assert a.shape == b.shape == (n, 2)
+                      assert np.isfinite(b).all(), (label, n, seed)
+                      la, lb = legalize(a, nl), legalize(b, nl)
+                      assert overlap_count(la) == overlap_count(lb) == 0
+                      ha, hb = hpwl(la, nl), hpwl(lb, nl)
+                      rel = abs(ha - hb) / max(abs(ha), 1.0)
+                      assert rel < 0.15, (label, n, seed, ha, hb, rel)
+                      print(label, n, seed, "numpy=", round(ha, 2), "torch=", round(hb, 2), "relative_delta=", round(rel, 4))
+          PY
