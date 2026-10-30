@@ -35,6 +35,26 @@ jobs:
               assert np.isfinite(hpwl(legal, nl)), name
               print(name, "PASS", "legal_hpwl=", round(hpwl(legal, nl), 3))
           PY
+      - name: Check placement quality and scaling
+        run: |
+          python - <<'PY'
+          import numpy as np
+          from placer import gen_netlist, place_random, place_quadratic, place_fd_grid, place_fd_allpairs, legalize, overlap_count, hpwl
+          for n in (200, 800):
+              nl = gen_netlist(n, 2026)
+              baseline = hpwl(legalize(place_random(nl, seed=7), nl), nl)
+              methods = [("quadratic", place_quadratic), ("fd_grid", place_fd_grid)]
+              if n == 200:
+                  methods.append(("fd_allpairs", place_fd_allpairs))
+              for name, fn in methods:
+                  p = fn(nl, seed=7) if name != "quadratic" else fn(nl)
+                  assert np.isfinite(p).all(), (n, name)
+                  q = legalize(p, nl)
+                  score = hpwl(q, nl)
+                  assert overlap_count(q) == 0, (n, name)
+                  assert score < baseline, (n, name, score, baseline)
+                  print(n, name, "beats random baseline:", round(score, 2), "<", round(baseline, 2))
+          PY
 
   torch-cpu:
     runs-on: ubuntu-latest
