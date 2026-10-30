@@ -1,0 +1,37 @@
+name: GPU Analytical Placer CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  numpy-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements.txt
+      - name: Compile Python
+        run: python -m compileall -q .
+      - name: Smoke test all NumPy placers
+        run: |
+          python - <<'PY'
+          import numpy as np
+          from placer import gen_netlist, METHODS, legalize, overlap_count, hpwl
+          nl = gen_netlist(64, 2026)
+          for name, fn in METHODS.items():
+              p = fn(nl)
+              assert p.shape == (64, 2), (name, p.shape)
+              assert np.isfinite(p).all(), name
+              legal = legalize(p, nl)
+              assert overlap_count(legal) == 0, name
+              assert np.isfinite(hpwl(legal, nl)), name
+              print(name, "PASS", "legal_hpwl=", round(hpwl(legal, nl), 3))
+          PY
