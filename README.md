@@ -10,7 +10,7 @@ Mean over 3 seeds, legalized HPWL improvement vs random / runtime:
 | 1600 | 90.8% | 52.9% | 91.6% | 0.07 s | 24.6 s |
 All methods: 0 overlaps after legalization.
 
-Limits: CPU/NumPy only. No CUDA/PyTorch port (torch could not be installed in the build sandbox). The quadratic placer is a from-scratch baseline, not a tuned industrial one. Synthetic netlists, not ISPD benchmarks.
+Limits: the benchmark data is from synthetic netlists, not ISPD benchmarks. The quadratic placer is a from-scratch baseline, not a tuned industrial placer. CUDA hardware execution remains unverified in CI.
 
-## PyTorch / CUDA port (UNTESTED - needs a machine with working PyTorch)
-`placer_torch.py` ports fd_grid and fd_allpairs to PyTorch (CUDA if available, else CPU). `bench_torch.py` compares it with the NumPy reference (legalized HPWL, overlaps, runtime) and writes bench_torch.json. Syntax-checked only; no results yet, and the GPU path has never been executed.
+## PyTorch / CUDA port
+`placer_torch.py` ports fd_grid and fd_allpairs to PyTorch and selects CUDA when available, otherwise CPU. The CI CPU parity test compares both methods with NumPy on 32- and 64-cell cases across two seeds: legalized HPWL matched to within 0.01%, and both implementations produced zero overlaps. `bench_torch.py` runs larger CPU/GPU comparisons and writes `bench_torch.json`. CUDA performance and numerical behavior still need validation on a machine with an NVIDIA GPU. Install PyTorch separately; it is intentionally optional in `requirements.txt`.
